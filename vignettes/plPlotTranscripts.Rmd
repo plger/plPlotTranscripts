@@ -1,0 +1,131 @@
+---
+title: "Plotting transcript structures"
+author: "Pierre-Luc Germain"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{plPlotTranscripts}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+This will guide you to the usage of the `plPlotTranscripts` function, which plots the intron-exon structure of a set of transcripts using plotly.
+
+## Requirements
+
+Required packages:
+
+* `plotly`
+* `GenomicRanges`
+* `seriation` (only if sorting transcripts by structure)
+* `viridis` (only for color-scales)
+
+
+## Getting started
+
+In order to use the function, we first need to have a `GRanges` object created from a GFF/GTF file (use `rtracklayer::import.gff()` to create one). We then need to subset it to our gene (or transcripts) of interest, for instance:
+```{r, eval=FALSE}
+# not run
+gff <- rtracklayer::import.gff("path/to/file.gff")
+gff <- gff[which(gff$gene_name=="Ezh2"),]
+```
+
+For this example, we'll load a sample set of transcripts:
+```{r, warning=FALSE, message=FALSE}
+library(plPlotTranscripts)
+data("sample.gff.gr")
+summary(sample.gff.gr)
+```
+
+To plot the transcripts, we can simply do:
+```{r, fig.width=8, fig.height=7, message=FALSE, warning=FALSE}
+plPlotTranscripts(sample.gff.gr, title="Ezh2")
+```
+
+By default, intronic regions not overlapping any exon are shrinked to the equivalent of 50nt, while exons are of proportional size. This behavior can be altered with the `maxIntronSize` argument. If `maxIntronSize=NULL`, introns will also be proportional:
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, maxIntronSize=NULL, title="Ezh2 (proportional)")
+```
+
+## Colors
+
+By default, coding regions are shown in black, and non-coding in gray. This can be changed with the following parameters:
+
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, intronColor = "black", exonColor = "blue", cdsColor = "darkblue")
+```
+
+(Similarly, the width of the different kinds of elements can be changed with the `intronW`, `utrW` and `cdsW` arguments.)
+
+Colors can also be mapped to a property of the transcripts, for instance by transcript type:
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, colorBy="transcript_type")
+```
+
+By adding metadata to the GRanges object, one can color the transcripts according to anything. Valid color names or codes are interpreted as such, while factor/character or numeric variables are mapped to colors. For instance:
+
+```{r, fig.width=8, fig.height=7}
+sample.gff.gr$expression <- sample.int(300, length(sample.gff.gr))
+plPlotTranscripts(sample.gff.gr, colorBy="expression")
+```
+
+Colors can also be specified for each transcript using a named vector (where the names are transcript ids):
+
+```{r, eval=FALSE}
+# not run
+txs <- unique(sample.gff.gr$transcript_id)
+cols <- c("blue",rep("red",length(txs)-1))
+names(cols) <- txs
+plPlotTranscripts(sample.gff.gr, colorBy=cols)
+```
+
+By default, all the exons of a transcript are plotted as one trace, so as to minimize the number of traces. This means that different exons of a transcript cannot be colored differently, or have different hoverinfo. To circumvent this, you can set `plotExonsSeparately=TRUE`:
+
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, colorBy="expression", plotExonsSeparately=T)
+```
+
+
+## Hover text
+
+The hover text can be changed with the `txData` argument, which can contain any combination of column names of the `GRanges` object (and the additional possibility `coordinates`). For instance, to report also the `expression` field we created, we could write:
+
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, colorBy="expression", txData=c("transcript_type","expression","coordinates"))
+```
+
+
+## Sorting
+
+By default, transcripts are sorted by biotype, and then by similarity. This can altered with the `sortBy` argument. Setting `sortBy=NULL` will plot the transcripts in the order in which they are encountered in the GRanges object.
+
+```{r, fig.width=8, fig.height=7}
+plPlotTranscripts(sample.gff.gr, sortBy="start")
+```
+
+
+## Annotations
+
+If `maxIntronSize=NULL`, the x-coordinates of the plot are simply the genomic coordinates (while the y-coordinates are the `space` times 1 to the number of transcripts), and annotations can be added to the plot outside of the function's calls. If  `maxIntronSize!=NULL`, however, x coordinates need to be scaled. To enable this, annotations can be given through the `annotations` parameter, which should be a data.frame with the following columns:
+
+* `x`: the genomic coordinates
+* `y`: either the index of the transcript (from bottom to top), or the transcript_id.
+* `text`: the annotation to plot.
+
+Any further argument to the `add_annotations()` call can be passed through `plPlotTranscripts(...)`. For example:
+
+```{r, fig.width=8, fig.height=7}
+df <- data.frame( x=c(47535000,47550000), 
+                  y=c("ENSMUST00000170311.7","ENSMUST00000092648.12"), 
+                  text=c("I like this nucleotide","Also this one")
+                )
+plPlotTranscripts(sample.gff.gr, annotations=df, arrowhead=0)
+```
+
