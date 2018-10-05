@@ -60,7 +60,12 @@ plPlotTranscripts <- function( gr,
       annotations <- NULL
     }
   }
-
+  
+  cn <- colnames(gr@elementMetadata)
+  if( !("transcript_type" %in% cn) && "transcript_biotype" %in% cn ){
+    gr$transcript_type <- gr$transcript_biotype
+  }
+  
   # we first identifiy the number of transcripts and eventually sort them
   gr <- gr[which(gr$type %in% c("transcript","exon","CDS")),]
   txs <- gr[which(gr$type=="transcript"),]
@@ -262,7 +267,6 @@ plPlotTranscripts <- function( gr,
   if("end" %in% sortBy) gr$end <- end(gr)
   if("strand" %in% sortBy) gr$strand <- strand(gr)
   tx <- as.data.frame(gr@elementMetadata, row.names = 1:length(gr))
-  rev(sortBy)
   for(f in rev(sortBy)) tx <- tx[order(tx[[f]]),]
   return(as.numeric(row.names(tx)))
 }
