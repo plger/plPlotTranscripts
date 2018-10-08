@@ -2,7 +2,7 @@
 
 Dynamic plots of transcripts structure using plotly
 
-![screenshot (static)](files/screenshot.png)
+![screenshot (static)](files/screenshot.jpg)
 *(static screenshot)*
 
 `plPlotTranscripts` displays transcripts intron-exon structures and allows to map colors, hover text and annotations to transcripts and/or exons.

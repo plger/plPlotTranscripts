@@ -1,6 +1,6 @@
 #' plPlotTranscripts
 #'
-#' Plots the exon-intron structure of a set of transcripts. See `vignette("plPlotTranscripts)`
+#' Plots the exon-intron structure of a set of transcripts.
 #'
 #' @param gr a GRanges object imported from a gff file (as done by `rtracklayer::import.gff`).
 #' @param title the plot title (default none).
@@ -84,26 +84,22 @@ plPlotTranscripts <- function( gr,
       if(all(txs$transcript_id %in% names(colorBy))){
         cols <- .parse2Colors(colorBy[txs$transcript_id])
         names(cols) <- txs$transcript_id
-        if(plotExonsSeparately){
-          gr$color <- cols[gr$transcript_id]
-          colorBy <- "color"
-        }
+        gr$color <- cols[gr$transcript_id]
+        colorBy <- "color"
       }else{
         warning("`colorBy` is neither a column of `gr` nor a named vector of transcript assignment, and will be ignored.")
         colorBy <- NULL
       }
     }else{
-      if(plotExonsSeparately){
-        gr$color <- as.character(.parse2Colors(gr@elementMetadata[,colorBy]))
-        colorBy <- "color"
-      }else{
-        cols <- .parse2Colors(txs@elementMetadata[,colorBy])
-        names(cols) <- txs$transcript_id
-      }
+      gr$color <- as.character(.parse2Colors(gr@elementMetadata[,colorBy]))
+      cols <- gr@elementMetadata[which(gr$type=="transcript"),"color"]
+      names(cols) <- gr@elementMetadata[which(gr$type=="transcript"),"transcript_id"]
+      txs$color <- cols[txs$transcript_id]
+      colorBy <- "color"
     }
   }
-
-  # preparing the hover-text
+  
+  # preparing the hover-text 
   if(plotExonsSeparately){
     # exons are plotted sperately, so we need to set hover text (including eventually coordinates) separately
     if("coordinates" %in% txData) gr$coordinates <- paste0(as.character(seqnames(txs)),":",start(gr),"-",end(gr)," ",strand(gr))
@@ -116,7 +112,7 @@ plPlotTranscripts <- function( gr,
   }
   txtext <- apply(as.data.frame(txs@elementMetadata[,txData]),1,collapse="\n",FUN=paste)
   names(txtext) <- txs$transcript_id
-
+  
   # y-coordinates are the index of the transcript times `space`
   y <- 1:ntx*space
   names(y) <- txs$transcript_id
@@ -127,10 +123,10 @@ plPlotTranscripts <- function( gr,
     showline = FALSE,
     showticklabels = FALSE,
     showgrid = FALSE)
-
+    
   exons <- gr[which(gr$type=="exon"),]
   cds <- gr[which(gr$type=="CDS"),]
-
+  
 
   if(!is.null(maxIntronSize)){
     # we scale everything to have small introns
@@ -164,10 +160,10 @@ plPlotTranscripts <- function( gr,
   }else{
     xaxis <- list( title="Genomic position")
   }
-
+  
   # plot initiation
   p <- plot_ly()
-
+  
   # plot transcript lines (straight lines, without introns-exons)
   for(i in 1:ntx){
     p <- p %>% add_trace( type="scatter", mode = 'lines',
@@ -176,7 +172,7 @@ plPlotTranscripts <- function( gr,
                           text=txtext[i],
                           hoverinfo='text',
                           name = txs$transcript_id[i],
-                          line=list( color=ifelse(is.null(colorBy),intronColor,colorBy[txs$transcript_id[i]]),
+                          line=list( color=ifelse(is.null(colorBy),intronColor,txs@elementMetadata[i,colorBy]),
                                      width=intronW))
   }
 
@@ -185,10 +181,10 @@ plPlotTranscripts <- function( gr,
     p <- .plPlotTranscripts.drawBlocks(p, exons, y, colorBy, "info", utrW, exonColor)
     if(length(cds)>0) p <- .plPlotTranscripts.drawBlocks(p, cds, y, colorBy, "info", cdsW, cdsColor)
   }else{
-    p <- .plPlotTranscripts.drawTranscripts(p, exons, y, cols, txtext, utrW, exonColor)
-    if(length(cds)>0) p <- .plPlotTranscripts.drawTranscripts(p, cds, y, cols, txtext, cdsW, cdsColor)
+    p <- .plPlotTranscripts.drawTranscripts(p, exons, y, colorBy, txtext, utrW, exonColor)
+    if(length(cds)>0) p <- .plPlotTranscripts.drawTranscripts(p, cds, y, colorBy, txtext, cdsW, cdsColor)
   }
-
+  
   # transcript labels
   if(!is.null(label.field) && label.field %in% names(txs@elementMetadata)){
     p <- p %>% add_annotations( x=start(txs),
@@ -199,7 +195,7 @@ plPlotTranscripts <- function( gr,
                                 xanchor='right',
                                 showarrow=F)
   }
-
+  
   # draw annotations
   if(!is.null(annotations)){
     if(is.factor(annotations$y)) annotations$y <- as.character(annotations$y)
@@ -231,18 +227,20 @@ plPlotTranscripts <- function( gr,
   p
 }
 
-.plPlotTranscripts.drawTranscripts <- function(p, exons, y, colors, info, width, defaultColor){
+.plPlotTranscripts.drawTranscripts <- function(p, exons, y, colorField, info, width, defaultColor){
   exons <- split(exons,exons$transcript_id)
   for(i in 1:length(exons)){
     te <- sort(exons[[i]])
     ey <- y[te$transcript_id[1]]
     x <- as.numeric(t(cbind(start(te),end(te),rep(NA,length(te)))))
+    cols <- defaultColor
+    if(!is.null(colorField)) cols <- exons[[i]]@elementMetadata[,colorField]
     p <- p %>% add_trace( type="scatter", mode = 'lines',
                           x = x,
                           y = rep(ey,length(x)),
                           text=info[te$transcript_id[1]],
                           hoverinfo='text',
-                          line=list( color=ifelse(is.null(colors),defaultColor,colors[te$transcript_id[1]]),
+                          line=list( color=cols,
                                      width=width)
     )
   }
@@ -257,16 +255,16 @@ plPlotTranscripts <- function( gr,
     library(seriation)
     upos <- unique(c(start(gr),end(gr)))
     bm <- t(sapply(split(c(start(gr),end(gr)),rep(gr$transcript_id,2)), upos=upos, FUN=function(x, upos){ upos %in% x }))
-    gr <- gr[which(gr$type=="transcript"),]
+    gr <- gr[which(gr$type=="transcript"),,drop=F]
     bm <- bm[gr$transcript_id,]
     gr$structure <- get_order(seriate(dist(bm), method = "MDS_angle"))
   }else{
-    gr <- gr[which(gr$type=="transcript"),]
+    gr <- gr[which(gr$type=="transcript"),,drop=F]
   }
   if("start" %in% sortBy) gr$start <- start(gr)
   if("end" %in% sortBy) gr$end <- end(gr)
   if("strand" %in% sortBy) gr$strand <- strand(gr)
   tx <- as.data.frame(gr@elementMetadata, row.names = 1:length(gr))
-  for(f in rev(sortBy)) tx <- tx[order(tx[[f]]),]
+  for(f in rev(sortBy)) tx <- tx[order(tx[[f]]),,drop=F]
   return(as.numeric(row.names(tx)))
 }
