@@ -183,10 +183,10 @@ plPlotTranscripts <- function( gr,
   # draw exons and CDS
   if(plotExonsSeparately){
     p <- .plPlotTranscripts.drawBlocks(p, exons, y, colorBy, "info", utrW, exonColor)
-    p <- .plPlotTranscripts.drawBlocks(p, cds, y, colorBy, "info", cdsW, cdsColor)
+    if(length(cds)>0) p <- .plPlotTranscripts.drawBlocks(p, cds, y, colorBy, "info", cdsW, cdsColor)
   }else{
     p <- .plPlotTranscripts.drawTranscripts(p, exons, y, cols, txtext, utrW, exonColor)
-    p <- .plPlotTranscripts.drawTranscripts(p, cds, y, cols, txtext, cdsW, cdsColor)
+    if(length(cds)>0) p <- .plPlotTranscripts.drawTranscripts(p, cds, y, cols, txtext, cdsW, cdsColor)
   }
 
   # transcript labels
