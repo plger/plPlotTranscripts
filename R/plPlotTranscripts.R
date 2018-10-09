@@ -85,6 +85,7 @@ plPlotTranscripts <- function( gr,
         cols <- .parse2Colors(colorBy[txs$transcript_id])
         names(cols) <- txs$transcript_id
         gr$color <- cols[gr$transcript_id]
+        txs$color <- cols[txs$transcript_id]
         colorBy <- "color"
       }else{
         warning("`colorBy` is neither a column of `gr` nor a named vector of transcript assignment, and will be ignored.")
